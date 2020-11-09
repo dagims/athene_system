@@ -141,7 +141,7 @@ def generate_features_test(stances, dataset, name, feature_list, features_dir):
         headId.append(name+str(stanceCounter))
         stanceCounter += 1
         
-        
+    print("Stances: ", str(stanceCounter))    
     X_feat = []
     for feature in feature_list:
         print("calculate feature: " + str(feature))
@@ -447,6 +447,8 @@ def validate_holdout(Xs, ys, X_holdout, y_holdout, non_bleeding_features, featur
     # test saving and restoring model
     filename = scorer_type + ".sav"
     save_model(best_clf, save_folder,filename)
+    print("SAVE FOLDER AND FILE NAME ------->", save_folder, " -- ", filename)
+    print("LOAD MODEL FOLDER AND FILE NAME ------>", parent_folder + scorer_type + "_new_0/" + filename)
     load_clf = load_model(parent_folder + scorer_type + "_new_0/", filename) # the 0th folder should always exist
     print_score_from_restored_model(load_clf, X_holdout, y_holdout)
 
@@ -508,6 +510,7 @@ def final_clf_training(Xs, ys, X_holdout, y_holdout, scorer_type, sanity_check=F
 
     # save the model
     filename = scorer_folder_name + ".sav"
+    print("SAVE FOLDER AND FILE NAME ------->", save_folder, " -- ", filename)
     save_model(clf, save_folder, filename)  # save model with filename to specific folder
 
     # predict on the data the classifier was trained on => should give near perfect score
@@ -560,10 +563,10 @@ def final_clf_prediction(data_path, features, features_dir, scorer_type, run_fin
 
     # load model [scorer_type]_final_2 classifier
     filename = scorer_type + "_final.sav"
-    load_clf = load_model(parent_folder + scorer_type + "_final_2/",
+    load_clf = load_model(parent_folder + scorer_type + "_final_new_2/",
                           filename)  # TODO set the correct path to the classifier here
 
-    print("Load model for final prediction of test set: " + parent_folder + scorer_type + "_final_2/" + filename)
+    print("Load model for final prediction of test set: " + parent_folder + scorer_type + "_final_new_2/" + filename)
 
     # predict classes and turn into labels
     y_predicted = load_clf.predict(X_final_test)
@@ -576,6 +579,7 @@ def final_clf_prediction(data_path, features, features_dir, scorer_type, run_fin
         os.makedirs(fnc_result_folder)
 
     # save the submission file, including the prediction for the labels
+    print("fnc result file: ", fnc_result_folder + "submission.csv")
     with open(fnc_result_folder + "submission.csv", 'w') as csvfile:
         fieldnames = ["Headline", "Body ID", "Stance"]
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
@@ -622,7 +626,11 @@ def pipeline():
     features_dir="%s/data/fnc-1/features" % (path.dirname(path.dirname(path.abspath(__file__))))
     result_file_folder = "%s" % (path.dirname(path.dirname(path.abspath(__file__))))
     embeddPath = "%s/data/embeddings/google_news/GoogleNews-vectors-negative300.bin.gz" % (path.dirname(path.dirname(path.abspath(__file__))))
-
+    print("data_path: ", data_path)
+    print("splits_dir: ", splits_dir)
+    print("features_dir: ", features_dir)
+    print("result_file_folder:", result_file_folder)
+    print("embeddPath: ", embeddPath)
     # get arguments for pipeline call
     pipeline_type, scorer_type, threshold = get_args()
 
@@ -630,6 +638,11 @@ def pipeline():
     reader = CorpusReader(data_path)
     bodyDict = reader.load_body("train_bodies.csv")
     train_data = reader.load_dataset("train_stances.csv")
+
+    print("bodyDict Type: ", str(type(bodyDict)))
+    print("train_data: ", str(type(train_data)), np.shape(train_data))
+    print("first train_data member: ", str(train_data[0]))
+    print("first bodyDict member: ", str(list(bodyDict.items())[0]))
 
     # configure pipeline runs by using given terminal arguments
     run_CV = False
@@ -684,9 +697,15 @@ def pipeline():
         feature_list = [
             # ORIGINAL FEATURES OF FNC-1 BEST SUBMISSION 3)
             ('voting_mlps_hard',
-             ['overlap', 'refuting', 'polarity', 'hand', 'NMF_fit_all_incl_holdout_and_test',
-              'latent_dirichlet_allocation_incl_holdout_and_test', 'latent_semantic_indexing_gensim_holdout_and_test',
-              'NMF_fit_all_concat_300_and_test', 'word_ngrams_concat_tf5000_l2_w_holdout_and_test',
+             ['overlap',
+              'refuting',
+              'polarity',
+              'hand',
+              #'NMF_fit_all_incl_holdout_and_test',
+              #'latent_dirichlet_allocation_incl_holdout_and_test',
+              #'latent_semantic_indexing_gensim_holdout_and_test',
+              #'NMF_fit_all_concat_300_and_test',
+              #'word_ngrams_concat_tf5000_l2_w_holdout_and_test',
               'stanford_wordsim_1sent'],
              [])
         ]
@@ -750,5 +769,139 @@ def pipeline():
             # delete temporary saved MultiThreadingFeedForwardMLP models if existing
             delete_ffmlp_data()
 
+def generate_features_single_test(stances, dataset, name, feature_list, features_dir):
+    """
+    Equal to generate_features(), but creates features for the unlabeled test data
+    """
+    h, b, bodyId, headId = [], [], [], []
+
+    feature_dict = {'overlap': word_overlap_features,
+                    'refuting': refuting_features,
+                    'polarity': polarity_features,
+                    'hand': hand_features,
+                    'stanford_wordsim_1sent': stanford_based_verb_noun_sim_1sent,
+                    'word_unigrams_5000_concat_tf_l2_holdout_unlbled_test': word_unigrams_5000_concat_tf_l2_holdout_unlbled_test,
+                    'NMF_cos_300_holdout_unlbled_test': NMF_cos_300_holdout_unlbled_test,
+                    'NMF_concat_300_holdout_unlbled_test': NMF_concat_300_holdout_unlbled_test,
+                    'latent_dirichlet_allocation_25_holdout_unlbled_test': latent_dirichlet_allocation_25_holdout_unlbled_test,
+                    'latent_semantic_indexing_gensim_300_concat_holdout_unlbled_test': latent_semantic_indexing_gensim_300_concat_holdout_unlbled_test,
+                    'NMF_fit_all_incl_holdout_and_test': NMF_fit_all_incl_holdout_and_test,
+                    'latent_dirichlet_allocation_incl_holdout_and_test': latent_dirichlet_allocation_incl_holdout_and_test,
+                    'latent_semantic_indexing_gensim_holdout_and_test': latent_semantic_indexing_gensim_holdout_and_test,
+                    'NMF_fit_all_concat_300_and_test': NMF_fit_all_concat_300_and_test,
+                    'word_ngrams_concat_tf5000_l2_w_holdout_and_test': word_ngrams_concat_tf5000_l2_w_holdout_and_test,
+                    'NMF_fit_all': NMF_fit_all,
+                    'word_ngrams_concat_tf5000_l2_w_holdout': word_ngrams_concat_tf5000_l2_w_holdout,
+                    'latent_dirichlet_allocation': latent_dirichlet_allocation,
+                    'latent_semantic_indexing_gensim_test': latent_semantic_indexing_gensim_test,
+                    'NMF_fit_all_concat_300': NMF_fit_all_concat_300,
+                    'NMF_cos_50': NMF_cos_50,
+                    'latent_dirichlet_allocation_25': latent_dirichlet_allocation_25,
+                    'latent_semantic_indexing_gensim_300_concat_holdout': latent_semantic_indexing_gensim_300_concat_holdout,
+                    'NMF_concat_300_holdout': NMF_concat_300_holdout,
+                    'word_unigrams_5000_concat_tf_l2_holdout': word_unigrams_5000_concat_tf_l2_holdout
+                    }
+
+    stanceCounter = 0
+    for stance in stances:
+        h.append(stance['Headline'])
+        b.append(dataset.articles[stance['Body ID']])
+        bodyId.append(stance['Body ID'])
+        headId.append(name+str(stanceCounter))
+        stanceCounter += 1
+        
+    print("Stances: ", str(stanceCounter))    
+    X_feat = []
+    for feature in feature_list:
+        print("calculate feature: " + str(feature))
+        _feature_file = features_dir+"/"+feature+"_single_test."+name+'.npy'
+        feat = gen_or_load_feats(feature_dict[feature], h, b, _feature_file, bodyId, feature, headId)
+        X_feat.append(feat)
+        print(len(feat))
+        os.remove(_feature_file)
+    X = np.concatenate(X_feat, axis=1)
+    return X
+
+def single_data_run(a_headline, a_body):
+        data_path = "%s/data/fnc-1" % (path.dirname(path.dirname(path.abspath(__file__))))
+        splits_dir = "%s/data/fnc-1/splits" % (path.dirname(path.dirname(path.abspath(__file__))))
+        features_dir="%s/data/fnc-1/features" % (path.dirname(path.dirname(path.abspath(__file__))))
+        result_file_folder = "%s" % (path.dirname(path.dirname(path.abspath(__file__))))
+        embeddPath = "%s/data/embeddings/google_news/GoogleNews-vectors-negative300.bin.gz" % (path.dirname(path.dirname(path.abspath(__file__))))
+        d = DataSet('', a_headline, a_body)
+        Xs = dict()
+        ys = dict()
+
+        # (scorer_type, [normal features], [non-bleeding features])
+        feature_list = [
+            # ORIGINAL FEATURES OF FNC-1 BEST SUBMISSION 3)
+            ('voting_mlps_hard',
+             ['overlap',
+              'refuting',
+              'polarity',
+              'hand',
+              #'NMF_fit_all_incl_holdout_and_test',
+              #'latent_dirichlet_allocation_incl_holdout_and_test',
+              #'latent_semantic_indexing_gensim_holdout_and_test',
+              #'NMF_fit_all_concat_300_and_test',
+              #'word_ngrams_concat_tf5000_l2_w_holdout_and_test',
+              'stanford_wordsim_1sent'],
+             [])
+        ]
+
+        for scorer_type, features, non_bleeding_features in feature_list:
+            d = TestDataSet('', a_headline, a_body)
+
+            # generate features for the unlabeled testing set
+            X_final_test = generate_features_single_test(d.stances, d, str("final_test"), features, features_dir)
+        
+            # define and create parent folder to save all trained classifiers into
+            parent_folder = "%s/data/fnc-1/mlp_models/" % (path.dirname(path.dirname(path.abspath(__file__))))
+            fnc_result_folder = "%s/data/fnc-1/fnc_results/" % (path.dirname(path.dirname(path.abspath(__file__))))
+        
+            # load model [scorer_type]_final_2 classifier
+            filename = scorer_type + "_final.sav"
+            load_clf = load_model(parent_folder + scorer_type + "_final_new_2/",
+                                  filename)  # TODO set the correct path to the classifier here
+        
+            print("Load model for final prediction of test set: " + parent_folder + scorer_type + "_final_new_2/" + filename)
+        
+            # predict classes and turn into labels
+            y_predicted = load_clf.predict_proba(X_final_test)
+            labeled_prediction = dict(zip(["agree", "disagree", "discuss", "unrelated"],
+                                    ['{:.2f}'.format(s_c) for s_c in y_predicted[0]]))
+            #predicted = [LABELS[int(a)] for a in y_predicted]
+            #print("Prediction Length: ", len(predicted))
+            print("Prediction Raw: ", labeled_prediction)
+            #print("Predicted output: ", predicted)
+
+
 if __name__ == '__main__':
-    pipeline()
+    _hd = "Hundreds of Palestinians flee floods in Gaza as Israel opens dams"
+    _bd = """Hundreds of Palestinians were evacuated from their homes Sunday morning after Israeli authorities opened a number of dams near the border, flooding the Gaza Valley in the wake of a recent severe winter storm.
+
+    The Gaza Ministry of Interior said in a statement that civil defense services and teams from the Ministry of Public Works had evacuated more than 80 families from both sides of the Gaza Valley (Wadi Gaza) after their homes flooded as water levels reached more than three meters.
+
+    Gaza has experienced flooding in recent days amid a major storm that saw temperatures drop and frigid rain pour down.
+
+    The storm displaced dozens and caused hardship for tens of thousands, including many of the approximately 110,000 Palestinians left homeless by Israel's assault over summer.
+
+    The suffering is compounded by the fact that Israel has maintained a complete siege over Gaza for the last eight years, severely limiting electricity and the availability of fuel for generators. It has also prevented the displaced from rebuilding their homes, as construction materials are largely banned from entering.
+
+    Gaza civil defense services spokesman Muhammad al-Midana warned that further harm could be caused if Israel opens up more dams in the area, noting that water is currently flowing at a high speed from the Israel border through the valley and into the Mediterranean sea.
+
+    Evacuated families have been sent to shelters sponsored by UNRWA, the UN agency for Palestinian refugees, in al-Bureij refugee camp and in al-Zahra neighborhood in the central Gaza Strip.
+
+    The Gaza Valley (Wadi Gaza) is a wetland located in the central Gaza Strip between al-Nuseirat refugee camp and al-Moghraqa. It is called HaBesor in Hebrew, and it flows from two streams -- one whose source runs from near Beersheba, and the other from near Hebron.
+
+    Israeli dams on the river to collect rainwater have dried up the wetlands inside Gaza, and destroyed the only source of surface water in the area.
+
+    Locals have continued to use it to dispose of their waste for lack of other ways to do so, however, creating an environmental hazard.
+
+    This is not the first time Israeli authorities have opened the Gaza Valley dams.
+
+    In Dec. 2013, Israeli authorities also opened the dams amid heavy flooding in the Gaza Strip. The resulting floods damaged dozens of homes and forces many families in the area from their homes.
+
+    In 2010, the dams were opened as well, forcing 100 families from their homes. At the time civil defense services said that they had managed to save seven people who had been at risk of drowning."""
+    #pipeline()
+    single_data_run("this is not it", "this is not it")

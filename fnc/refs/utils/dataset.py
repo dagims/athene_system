@@ -2,7 +2,13 @@ from csv import DictReader
 
 
 class DataSet():
-    def __init__(self, path):
+    def __init__(self, path, a_headline=None, a_body=None):
+        if a_headline != None:
+            self.stances = {'Headline' : a_headline, 'Body ID' : 0}
+            self.articles = {'Body ID' : 0, 'articleBody' : a_body}
+            print("** Single Data Input **")
+            return
+
         self.path = path
 
         print("Reading dataset")

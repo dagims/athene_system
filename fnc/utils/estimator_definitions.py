@@ -43,7 +43,7 @@ def get_estimator(scorer_type, save_folder=None):
             ('mlp', mlp4),
             ('mlp', mlp5),
         ],  n_jobs=1,
-            voting='hard')
+            voting='soft')
 
 
 

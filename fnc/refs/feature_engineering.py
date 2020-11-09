@@ -39,10 +39,12 @@ def remove_stopwords(l):
 
 def gen_or_load_feats(feat_fn, headlines, bodies, feature_file, bodyId, feature, headId=""):
     if not os.path.isfile(feature_file):
+        print("-------------------------------------")
         if 'stanford' in feature:
             feats = feat_fn(headlines, bodies, bodyId, headId)
         else:
             feats = feat_fn(headlines, bodies)
+        print("========", feats)
         np.save(feature_file, feats)
 
     return np.load(feature_file)

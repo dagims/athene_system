@@ -2,7 +2,16 @@ from csv import DictReader
 
 
 class TestDataSet():
-    def __init__(self, path):
+    def __init__(self, path, a_headline=None, a_body=None):
+        if a_headline != None:
+            self.stances = [{'Headline' : a_headline, 'Body ID' : 0}]
+            self.articles = {0 : a_body}
+            print('**** Single Data Test ****')
+            print("---------- Stances type: ", str(type(self.stances)))
+            print("---------- articles type: ", str(type(self.articles)))
+            print("---------- Stances: ", str(self.stances))
+            print("---------- articles: ", str(self.articles))
+            return
         self.path = path
 
         print("Reading dataset")
@@ -23,6 +32,10 @@ class TestDataSet():
 
         print("Total stances: " + str(len(self.stances)))
         print("Total bodies: " + str(len(self.articles)))
+        print("---------- Stances type: ", str(type(self.stances)))
+        print("---------- articles type: ", str(type(self.articles)))
+        print("---------- Stances: ", str(self.stances))
+        print("---------- articles: ", str(self.articles))
 
     def read(self,filename):
         rows = []
