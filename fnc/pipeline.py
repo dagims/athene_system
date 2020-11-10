@@ -29,6 +29,19 @@ from fnc.refs.utils.dataset import DataSet
 from fnc.refs.utils.testDataset  import TestDataSet
 import csv
 
+import json
+
+from http.server import BaseHTTPRequestHandler, HTTPServer
+
+import grpc
+import time
+from concurrent import futures
+sys.path.append("./service_spec")
+import athenefnc_pb2 as pb2
+import athenefnc_pb2_grpc as pb2_grpc
+
+server_port = None
+
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
 
 def get_args():
@@ -874,6 +887,44 @@ def single_data_run(a_headline, a_body):
             #print("Prediction Length: ", len(predicted))
             print("Prediction Raw: ", labeled_prediction)
             #print("Predicted output: ", predicted)
+            return labeled_prediction
+
+class HTTPserver(BaseHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        content_type = self.headers['Content-Type']
+        if content_type == 'application/json':
+            data = self.rfile.read(content_length)
+            json_data = json.loads(data.decode('utf-8'))
+            if list(json_data.keys()).count('headline') == 1 and \
+               list(json_data.keys()).count('body') == 1: 
+                labeled_pred = single_data_run(json_data['headline'],
+                                               json_data['body'])
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write(json.dumps(dict(labeled_pred)).encode('utf-8'))
+            else:
+                self.send_response(400)
+                self.send_header('Content-Type', 'text/plain')
+                self.end_headers()
+                self.wfile.write("Input should be json with keys 'headline' and 'body'")
+        else:
+            self.send_response(400)
+            self.send_header('Content-Type', 'text/plain')
+            self.end_headers()
+
+class GRPCserver(pb2_grpc.AtheneStanceClassificationServicer):
+    def stance_classify(self, req, ctxt):
+        headline = req.headline
+        body = req.body
+        lbld_pred = single_data_run(headline, body)
+        stance_pred = pb2.Stance()
+        stance_pred.agree = lbld_pred['agree']
+        stance_pred.disagree = lbld_pred['disagree']
+        stance_pred.discuss = lbld_pred['discuss']
+        stance_pred.unrelated = lbld_pred['unrelated']
+        return stance_pred
 
 
 if __name__ == '__main__':
@@ -904,4 +955,28 @@ if __name__ == '__main__':
 
     In 2010, the dams were opened as well, forcing 100 families from their homes. At the time civil defense services said that they had managed to save seven people who had been at risk of drowning."""
     #pipeline()
-    single_data_run("this is not it", "this is not it")
+    #single_data_run("this is not it", "this is not it")
+    if len(sys.argv) == 3:
+        serve_mode = sys.argv[1]
+        server_port = int(sys.argv[2])
+        if serve_mode == 'rest':
+            server_handler = run_server()
+            httpd = HTTPServer(('', server_port), HTTPserver)
+            try:
+                print("Starting REST Server on port: ", str(server_port))
+                httpd.serve_forever()
+            except KeyboardInterrupt:
+                print("Exiting...")
+                httpd.server_close()
+        else:
+            grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
+            pb2_grpc.add_AtheneStanceClassificationServicer_to_server(GRPCserver, grpc_server)
+            grpc_server.add_insecure_port('[::]:' + str(serve_port))
+            grpc_server.start()
+            print("GRPC Server Started on port: " + str(serve_port))
+            try:
+                while True:
+                    time.sleep(10)
+            except KeyboardInterrupt:
+                print("Exiting....")
+                grpc_server.stop(0)
