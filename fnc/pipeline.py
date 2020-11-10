@@ -33,13 +33,6 @@ import json
 
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-import grpc
-import time
-from concurrent import futures
-sys.path.append("./service_spec")
-import athenefnc_pb2 as pb2
-import athenefnc_pb2_grpc as pb2_grpc
-
 server_port = None
 
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
@@ -914,19 +907,6 @@ class HTTPserver(BaseHTTPRequestHandler):
             self.send_header('Content-Type', 'text/plain')
             self.end_headers()
 
-class GRPCserver(pb2_grpc.AtheneStanceClassificationServicer):
-    def stance_classify(self, req, ctxt):
-        headline = req.headline
-        body = req.body
-        lbld_pred = single_data_run(headline, body)
-        stance_pred = pb2.Stance()
-        stance_pred.agree = lbld_pred['agree']
-        stance_pred.disagree = lbld_pred['disagree']
-        stance_pred.discuss = lbld_pred['discuss']
-        stance_pred.unrelated = lbld_pred['unrelated']
-        return stance_pred
-
-
 if __name__ == '__main__':
     _hd = "Hundreds of Palestinians flee floods in Gaza as Israel opens dams"
     _bd = """Hundreds of Palestinians were evacuated from their homes Sunday morning after Israeli authorities opened a number of dams near the border, flooding the Gaza Valley in the wake of a recent severe winter storm.
@@ -956,27 +936,12 @@ if __name__ == '__main__':
     In 2010, the dams were opened as well, forcing 100 families from their homes. At the time civil defense services said that they had managed to save seven people who had been at risk of drowning."""
     #pipeline()
     #single_data_run("this is not it", "this is not it")
-    if len(sys.argv) == 3:
-        serve_mode = sys.argv[1]
-        server_port = int(sys.argv[2])
-        if serve_mode == 'rest':
-            server_handler = run_server()
-            httpd = HTTPServer(('', server_port), HTTPserver)
-            try:
-                print("Starting REST Server on port: ", str(server_port))
-                httpd.serve_forever()
-            except KeyboardInterrupt:
-                print("Exiting...")
-                httpd.server_close()
-        else:
-            grpc_server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
-            pb2_grpc.add_AtheneStanceClassificationServicer_to_server(GRPCserver, grpc_server)
-            grpc_server.add_insecure_port('[::]:' + str(serve_port))
-            grpc_server.start()
-            print("GRPC Server Started on port: " + str(serve_port))
-            try:
-                while True:
-                    time.sleep(10)
-            except KeyboardInterrupt:
-                print("Exiting....")
-                grpc_server.stop(0)
+    if len(sys.argv) == 2:
+        server_port = int(sys.argv[1])
+        httpd = HTTPServer(('', server_port), HTTPserver)
+        try:
+            print("Starting REST Server on port: ", str(server_port))
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            print("Exiting...")
+            httpd.server_close()
